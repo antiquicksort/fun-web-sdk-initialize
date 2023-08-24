@@ -8,12 +8,15 @@ import {
   Goerli,
   usePrimaryAuth,
 } from "@fun-xyz/react";
-
+import { useState } from "react";
 
 //Step 1: Initialize the FunStore. This action configures your environment based on your ApiKey, chain, and the authentication methods of your choosing. 
 const DEFAULT_FUN_WALLET_CONFIG = {
   apiKey: "hnHevQR0y394nBprGrvNx4HgoZHUwMet5mXTOBhf",
   chain: Goerli,
+  gasSponsor: {
+    sponsorAddress: "0xCB5D0b4569A39C217c243a436AC3feEe5dFeb9Ad",
+  }
 };
 
 const DEFAULT_CONNECTORS = [
@@ -30,7 +33,6 @@ const ConnectorButton = ({ index }) => {
   const { active, activate, deactivate, connectorName, connector } = useConnector({ index });
 
   return (<button
-    style={{ margin: "8px" }}
     onClick={() => {
       if (active) {
         deactivate(connector)
@@ -38,11 +40,14 @@ const ConnectorButton = ({ index }) => {
       }
       activate(connector)
     }
-    }>{connectorName} {active ? ("Connected") : ("Not connected")}</button>)
+    }>{active ? ("Unconnect") : ("Connect")} {connectorName} </button>)
 }
 
 export default function App() {
-  const { account: connectorAccount } = useConnector({ index: 0, autoConnect: true });
+  const [receiptTxId, setReceiptTxId] = useState("")
+  const [loading, setLoading] = useState(false)
+
+  const { account: connectorAccount, active } = useConnector({ index: 0, autoConnect: true });
 
   //Step 3: Use the initializeFunAccount method to create your funWallet object
   const { account, initializeFunAccount, funWallet } = useCreateFun()
@@ -61,38 +66,60 @@ export default function App() {
     }).catch()
   }
 
+
+  const createWallet = async () => {
+    // Add your custom action code here!
+    setLoading(true)
+    const op = await funWallet.create(auth, await auth.getUserId())
+    const receipt = await funWallet.executeOperation(auth, op)
+    setReceiptTxId(receipt.txId)
+    setLoading(false)
+
+    // FINAL STEP: Add your custom action logic here (swap, transfer, etc)
+  }
+
   return (
     <div className="App">
-      <h1>Initialize Fun Wallet Object with Solo Authentication (Metamask)</h1>
+      <h1>Create FunWallet with Metamask</h1>
       1. Connect Metamask.
       <ConnectorButton key={0} index={0} ></ConnectorButton>
-      <br></br>
-      2. Initialize the Fun Wallet and Auth object.
-      <button onClick={initializeSingleAuthFunAccount}>Initialize Wallet</button>
-      <br></br>
-      <br></br>
-      {account ?
-        <div>
-          <h2>Fun Wallet Account Address: {account}</h2>
-          {JSON.stringify(account)}
-        </div>
-        : <></>
-      }
-      {funWallet ?
-        <div>
-          <h2>Fun Wallet Object: </h2>
-          {JSON.stringify(funWallet)}
-        </div>
-        : <></>
-      }
       {
-        auth ?
+        active ?
           <div>
-            <h2>Auth Object: </h2>
-            {JSON.stringify(auth)}
+            Success! Metamask Connected!
           </div>
           : <></>
       }
+      <br></br>
+      <br></br>
+
+      2. Initialize the FunWallet and Auth object.
+      <button onClick={initializeSingleAuthFunAccount}>Initialize FunWallet</button>
+      {account ?
+        <div>
+          Success! FunWallet Address: {account}
+        </div>
+        : <></>
+      }
+      <br></br>
+      <br></br>
+
+      3. Create FunWallet onchain.
+      <button onClick={createWallet} >Create FunWallet</button>
+      {loading ?
+        <div>
+          Loading...
+        </div>
+        : <></>
+      }
+      {receiptTxId ?
+        <div>
+          Success! View on <a href={`https://goerli.etherscan.io/address/${account}`} target="_blank"> block explorer. </a>
+        </div>
+        : <></>
+      }
+      <br></br>
+
     </div>
   );
 }
